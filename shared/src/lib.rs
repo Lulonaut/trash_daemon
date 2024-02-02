@@ -1,15 +1,14 @@
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub enum CommandType {
     AddFile,
     RestoreFile,
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct Command {
@@ -25,20 +24,26 @@ pub struct CommandResult {
 macro_rules! impl_send_and_receive {
     ($t:ty) => {
         impl $t {
-            pub fn decode_from_stream(stream: UnixStream)-> std::io::Result<$t> {
+            pub fn decode_from_stream(stream: UnixStream) -> std::io::Result<$t> {
                 receive_message(stream)
             }
         }
     };
 }
 
-pub fn send_message<S>(mut stream: UnixStream, payload: S) -> std::io::Result<()> where S: Serialize {
+pub fn send_message<S>(mut stream: UnixStream, payload: S) -> std::io::Result<()>
+where
+    S: Serialize,
+{
     let encoded = bincode::serialize(&payload).unwrap();
     stream.write_all(&*encoded)?;
     Ok(())
 }
 
-pub fn receive_message<S>(mut stream: UnixStream) -> std::io::Result<S> where S: DeserializeOwned {
+pub fn receive_message<S>(mut stream: UnixStream) -> std::io::Result<S>
+where
+    S: DeserializeOwned,
+{
     let mut response = Vec::new();
     stream.read_to_end(&mut response)?;
 

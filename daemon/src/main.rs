@@ -4,7 +4,7 @@ use std::process::exit;
 
 use signal_hook::{consts::SIGINT, iterator::Signals};
 
-use shared::{CommandResult, send_message};
+use shared::{send_message, CommandResult};
 
 fn read_line_from_stream(stream: &UnixStream) -> std::io::Result<String> {
     let mut string = String::new();
@@ -18,17 +18,12 @@ fn main() -> std::io::Result<()> {
     let socket_path = "socket";
     let _ = std::fs::remove_file(socket_path);
 
-    let socket = UnixListener::bind(socket_path)?;
-
     let mut signals = Signals::new(&[SIGINT])?;
-
     std::thread::spawn(move || {
         for _ in signals.forever() {
             // Only SIGINT will make it here, exit gracefully
             match std::fs::remove_file(socket_path) {
-                Ok(_) => {
-                    exit(0)
-                }
+                Ok(_) => exit(0),
                 Err(_) => {
                     eprintln!("Failed to remove socket file");
                     exit(1);
@@ -36,6 +31,8 @@ fn main() -> std::io::Result<()> {
             }
         }
     });
+
+    let socket = UnixListener::bind(socket_path)?;
     for stream in socket.incoming() {
         let stream = stream?;
 
