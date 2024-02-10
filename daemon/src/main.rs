@@ -4,23 +4,15 @@ use std::process::exit;
 
 use signal_hook::{consts::SIGINT, iterator::Signals};
 
-use shared::{send_message, CommandResult};
-
-fn read_line_from_stream(stream: &UnixStream) -> std::io::Result<String> {
-    let mut string = String::new();
-    let mut reader = BufReader::new(stream);
-    reader.read_line(&mut string)?;
-
-    Ok(string)
-}
+use shared::{Command, CommandResult, SendMessage};
 
 fn main() -> std::io::Result<()> {
     let socket_path = "socket";
     let _ = std::fs::remove_file(socket_path);
 
-    let mut signals = Signals::new(&[SIGINT])?;
+    let mut signals = Signals::new([SIGINT])?;
     std::thread::spawn(move || {
-        for _ in signals.forever() {
+        if signals.forever().next().is_some() {
             // Only SIGINT will make it here, exit gracefully
             match std::fs::remove_file(socket_path) {
                 Ok(_) => exit(0),
@@ -34,19 +26,18 @@ fn main() -> std::io::Result<()> {
 
     let socket = UnixListener::bind(socket_path)?;
     for stream in socket.incoming() {
-        let stream = stream?;
+        let mut stream = stream?;
 
-        if handle_client(stream).is_err() {
+        if handle_client(&mut stream).is_err() {
             eprintln!("Error occurred while handling client!");
         }
     }
     Ok(())
 }
 
-fn handle_client(stream: UnixStream) -> std::io::Result<()> {
-    let message = read_line_from_stream(&stream)?;
-    print!("{}", message);
+fn handle_client(stream: &mut UnixStream) -> std::io::Result<()> {
+    let command: Command = stream.receive_message()?;
+    dbg!(&command);
 
-    send_message(stream, CommandResult { status: 0 })?;
-    Ok(())
+    stream.send_message(CommandResult { status: 0 })
 }

@@ -1,54 +1,58 @@
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
+use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
+use std::path::PathBuf;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum CommandType {
-    AddFile,
-    RestoreFile,
+    AddFilesToTrash,
+    RestoreFiles,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Command {
-    pub payload: String,
     pub command_type: CommandType,
+    pub thing: Vec<PathBuf>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CommandResult {
     pub status: i32,
 }
 
-macro_rules! impl_send_and_receive {
-    ($t:ty) => {
-        impl $t {
-            pub fn decode_from_stream(stream: UnixStream) -> std::io::Result<$t> {
-                receive_message(stream)
-            }
-        }
-    };
+pub trait SendMessage {
+    fn send_message<S>(&mut self, payload: S) -> std::io::Result<()>
+    where
+        S: Serialize;
+
+    fn receive_message<S>(&mut self) -> std::io::Result<S>
+    where
+        S: DeserializeOwned;
 }
 
-pub fn send_message<S>(mut stream: UnixStream, payload: S) -> std::io::Result<()>
-where
-    S: Serialize,
-{
-    let encoded = bincode::serialize(&payload).unwrap();
-    stream.write_all(&*encoded)?;
-    Ok(())
-}
+impl SendMessage for UnixStream {
+    fn send_message<S>(&mut self, payload: S) -> std::io::Result<()>
+    where
+        S: Serialize,
+    {
+        let encoded = bincode::serialize(&payload).unwrap();
+        self.write_all(&encoded)?;
+        // Send EOF. We only send and receive a single message, both as the client and the server, so this is fine
+        self.shutdown(Shutdown::Write)?;
+        Ok(())
+    }
 
-pub fn receive_message<S>(mut stream: UnixStream) -> std::io::Result<S>
-where
-    S: DeserializeOwned,
-{
-    let mut response = Vec::new();
-    stream.read_to_end(&mut response)?;
+    fn receive_message<S>(&mut self) -> std::io::Result<S>
+    where
+        S: DeserializeOwned,
+    {
+        let mut response = Vec::new();
+        self.read_to_end(&mut response)?;
 
-    let decoded = bincode::deserialize(&response[..]).unwrap();
-    Ok(decoded)
+        bincode::deserialize(&response[..])
+            .map_err(|_| std::io::Error::new(ErrorKind::InvalidData, "Invalid data"))
+    }
 }
-impl_send_and_receive!(CommandResult);
-impl_send_and_receive!(Command);
