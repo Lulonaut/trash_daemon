@@ -3,8 +3,10 @@ use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
+
+pub mod config;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum CommandType {
@@ -15,15 +17,16 @@ pub enum CommandType {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Command {
     pub command_type: CommandType,
-    pub thing: Vec<PathBuf>,
+    pub paths: Vec<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CommandResult {
     pub status: i32,
+    pub message: Option<String>,
 }
 
-pub trait SendMessage {
+pub trait CommandIO {
     fn send_message<S>(&mut self, payload: S) -> std::io::Result<()>
     where
         S: Serialize;
@@ -33,7 +36,7 @@ pub trait SendMessage {
         S: DeserializeOwned;
 }
 
-impl SendMessage for UnixStream {
+impl CommandIO for UnixStream {
     fn send_message<S>(&mut self, payload: S) -> std::io::Result<()>
     where
         S: Serialize,
@@ -54,5 +57,20 @@ impl SendMessage for UnixStream {
 
         bincode::deserialize(&response[..])
             .map_err(|_| std::io::Error::new(ErrorKind::InvalidData, "Invalid data"))
+    }
+}
+
+pub fn convert_to_absolute_path<S>(path: S) -> PathBuf
+where
+    S: Into<PathBuf>,
+{
+    let path = path.into();
+    if path.is_absolute() {
+        path
+    } else {
+        // This also needs to work for non-existent files to restore them outside the trash directory, therefore std::fs::canonicalize() wont work
+        std::env::current_dir()
+            .expect("current working dir should exist (do you have valid permissions?)")
+            .join(path)
     }
 }

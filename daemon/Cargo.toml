@@ -6,7 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-shared = { path = "../shared"}
+shared = { path = "../shared" }
 serde = { workspace = true }
-bincode = { workspace = true}
+bincode = { workspace = true }
+toml = { workspace = true }
 signal-hook = "0.3.17"
+xdg-basedir = "1.0.0"
+
+[dependencies.uuid]
+version = "1.7.0"
+features = ["serde", "v4"]

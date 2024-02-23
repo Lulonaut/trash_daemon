@@ -7,4 +7,7 @@ edition = "2021"
 
 [dependencies]
 serde = { workspace = true }
-bincode = { workspace = true}
+bincode = { workspace = true }
+toml = { workspace = true }
+serde-inline-default = "0.2.0"
+xdg-basedir = "1.0.0"

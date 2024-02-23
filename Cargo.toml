@@ -5,5 +5,9 @@ members = [
     "daemon", "cli", "shared"]
 
 [workspace.dependencies]
-serde = { version = "1.0.196", features = ["derive", "serde_derive"] }
 bincode = "1.3.3"
+toml = "0.8.10"
+
+[workspace.dependencies.serde]
+version = "1.0.197"
+features = ["derive", "serde_derive"]
