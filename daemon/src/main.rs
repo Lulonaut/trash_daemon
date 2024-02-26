@@ -26,11 +26,15 @@ fn main() -> std::io::Result<()> {
     let socket_path = config.socket_path.clone();
     std::thread::spawn(move || {
         if signals.forever().next().is_some() {
+            eprint!("Deleting socket and shutting down...");
             // Only SIGINT will make it here, exit gracefully
             match std::fs::remove_file(socket_path) {
-                Ok(_) => exit(0),
+                Ok(_) => {
+                    eprintln!("OK");
+                    exit(0);
+                }
                 Err(_) => {
-                    eprintln!("Failed to remove socket file");
+                    eprintln!("\nFailed to remove socket file!");
                     exit(1);
                 }
             }
